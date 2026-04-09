@@ -58,6 +58,8 @@ void writeHeaders() {
     output_file.print(",");
     output_file.print("v3_n_mps");
     output_file.print(",");
+    output_file.print("a3_n_mps2");
+    output_file.print(",");
     output_file.print("q0");
     output_file.print(",");
     output_file.print("q1");

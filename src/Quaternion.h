@@ -38,7 +38,6 @@ static inline void quat_transform(const Quaternion& q,
                                   float v2, float& w2,
                                   float v3, float& w3) 
 {
-  
     Quaternion v_quat = {0.0f, v1, v2, v3};
     Quaternion qstar = quat_conj(q);
     Quaternion w_quat = quat_mult(q,v_quat);
@@ -46,8 +45,8 @@ static inline void quat_transform(const Quaternion& q,
     w1 = w_quat.q1;
     w2 = w_quat.q2;
     w3 = w_quat.q3;
-
 }
+
 static inline Quaternion eul2quat(float phi_rad, float theta_rad, float psi_rad) {
 
     float cphio2 = std::cos(phi_rad * 0.5f);

@@ -172,3 +172,10 @@ float dot_product_3(float a[3], float b[3])
     }
     return res;
 }
+
+void cross_product_3(float res[3], float a[3], float b[3])
+{
+    res[0] = a[1] * b[2] - a[2] * b[1];
+    res[1] = a[2] * b[0] - a[0] * b[2];
+    res[2] = a[0] * b[1] - a[1] * b[0];
+}

@@ -24,7 +24,6 @@ int SIL_Sensors::findTimeIndexBinary(float t_runtime) {
 void SIL_Sensors::readMessages(float t_s) {
 
     int k = findTimeIndexBinary(t_s);
-    //Serial.println(k);
 
     euler_rad[0]  = sil_euler_1_rad[k];
     euler_rad[1]  = sil_euler_2_rad[k];
@@ -46,13 +45,11 @@ float* SIL_Sensors::getRateOfTurn() { return gyro_rps; }
 
 float SIL_Sensors::readAltitude(float sea_level_pressure_pa, float t_s) {
     int k = findTimeIndexBinary(t_s);
-    
-
     return sil_alt_z_m[k];
 }
 
 float SIL_Sensors::sil_true_alt() {
-    t = (now/1.0e6f) + sil_time_s[0];
+    t = (now/1.0e6f) + 0*sil_time_s[0];
     int k = findTimeIndexBinary(t);
     return sil_true_z_m[k];
 }
@@ -65,7 +62,7 @@ bool SIL_Sensors::performIMUTare(){
     return true;
 }
 bool SIL_Sensors::readIMU(IMU_Measurements& imu_meas){
-    t = (now/1.0e6f) + sil_time_s[0];
+    t = (now/1.0e6f) + 0*sil_time_s[0];
     readMessages(t);
 
     float *acc  = getAcceleration();
@@ -84,9 +81,9 @@ bool SIL_Sensors::readIMU(IMU_Measurements& imu_meas){
         imu_meas.gyroX  = gyro[0];
         imu_meas.gyroY  = gyro[1];
         imu_meas.gyroZ  = gyro[2];
-        imu_meas.roll_deg = eulerAngles[0];
-        imu_meas.pitch_deg = eulerAngles[1];
-        imu_meas.yaw_deg = eulerAngles[2];
+        imu_meas.roll_deg = eulerAngles[0]*180.0f/PI;
+        imu_meas.pitch_deg = eulerAngles[1]*180.0f/PI;
+        imu_meas.yaw_deg = eulerAngles[2]*180.0f/PI;
     } else {
         imu_meas.accelX = acc[0];
         imu_meas.accelY = acc[1];
@@ -94,13 +91,13 @@ bool SIL_Sensors::readIMU(IMU_Measurements& imu_meas){
         imu_meas.gyroX  = gyro[0];
         imu_meas.gyroY  = gyro[1];
         imu_meas.gyroZ  = gyro[2];
-        imu_meas.roll_deg = eulerAngles[0];
-        imu_meas.pitch_deg = eulerAngles[1];
-        imu_meas.yaw_deg = eulerAngles[2];
+        imu_meas.roll_deg = eulerAngles[0]*180.0f/PI;
+        imu_meas.pitch_deg = eulerAngles[1]*180.0f/PI;
+        imu_meas.yaw_deg = eulerAngles[2]*180.0f/PI;
     }
 
     // Timer updates
-    now = micros();
+    // now = micros();
     imu_meas.IMU_dt_us = now - imu_meas.last_IMU_reading_time_us;
     imu_meas.last_IMU_reading_time_us = now;
 
@@ -116,7 +113,7 @@ bool SIL_Sensors::performBarometerTare(){
     return true;
 };
 bool SIL_Sensors::readBarometer(BARO_Measurements& baro_meas){
-    t = (now/1.0e6f) + sil_time_s[0];
+    t = (now/1.0e6f) + 0*sil_time_s[0];
 
     baro_meas.baroAltitude    = readAltitude(1013.25f, t);
     baro_meas.baroPressure    = 0;

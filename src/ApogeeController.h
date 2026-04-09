@@ -26,7 +26,7 @@
 // Rocket parameters (UPDATE THESE WITH YOUR VALUES)
 #define ROCKET_MASS 21.0f           // kg (dry mass after burnout)
 #define ROCKET_DIAMETER 0.1567f     // meters (6 inches)
-#define ROCKET_CD 0.5f             // Baseline drag coefficient            // need to get data from ROhit
+#define ROCKET_CD 0.2f             // Baseline drag coefficient            // need to get data from ROhit
 #define REFERENCE_AREA PI*ROCKET_DIAMETER*ROCKET_DIAMETER/4.0f     // m^2 (pi * (diameter/2)^2)
 #define AIR_DENSITY 1.225f          // kg/m^3 at sea level
 
@@ -63,6 +63,7 @@ private:
     
     // Control state
     float currentFlapAngle;
+    float achievedFlapAngle;
     unsigned long lastUpdateTime;
     bool controlActive;
     
@@ -91,7 +92,8 @@ public:
     
     // Getters for telemetry/debugging
     float getPredictedApogee();
-    float getCurrentFlapAngle();
+    float getCommandFlapAngle();
+    float getAchievedFlapAngle();
     float getApogeeError();
     int getSimulationSteps();
     bool isControlActive();

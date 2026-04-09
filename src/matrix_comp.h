@@ -46,3 +46,5 @@ void copy_3(float res[3], float arr[3]);
 void identity_3x3(float res[3][3]);
 
 float dot_product_3(float a[3], float b[3]);
+
+void cross_product_3(float res[3], float a[3], float b[3]);

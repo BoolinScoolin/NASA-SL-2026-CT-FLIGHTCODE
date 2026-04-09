@@ -184,12 +184,12 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
     float accelMagnitude = ins.accel_2_norm;
     
     #ifdef ENABLE_PHASE_BUFFER
-    addToPhaseBuffer(ins.p3_n_m, ins.v3_n_mps, accelMagnitude);
+    addToPhaseBuffer(-ins.p3_n_m, -ins.v3_n_mps, accelMagnitude);
     #endif
     
     // Track max altitude
-    if (ins.p3_n_m > maxAltitude) {
-        maxAltitude = ins.p3_n_m;
+    if (-ins.p3_n_m > maxAltitude) {
+        maxAltitude = -ins.p3_n_m;
     }
     
     // ========================================================================
@@ -228,7 +228,7 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
             bool minBurnTime = ((now - liftoffTime) > BURNOUT_TIME_MIN);
 
             if (minBurnTime) {
-                if (fabs(ins.p3_n_m) < 10 && fabs(ins.v3_n_mps) < 10) {
+                if (fabs(-ins.p3_n_m) < 10 && fabs(-ins.v3_n_mps) < 10) {
                     currentPhase = ARMED;
                     phaseStartTime = now;
                 }
@@ -276,7 +276,7 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
 
             #else
             // Fallback: simple velocity check (less robust)
-            bool descendingVelocity = (ins.v3_n_mps < APOGEE_VELOCITY_THRESHOLD);
+            bool descendingVelocity = (-ins.v3_n_mps < APOGEE_VELOCITY_THRESHOLD);
             
             if (descendingVelocity) {
                 currentPhase = DESCENT;
@@ -293,7 +293,7 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
             // Check if values barely change over last N samples
             // ================================================================
             
-            bool lowAltitude = (ins.p3_n_m < LANDING_ALT_THRESHOLD);
+            bool lowAltitude = (-ins.p3_n_m < LANDING_ALT_THRESHOLD);
             
             #ifdef ENABLE_PHASE_BUFFER
             bool isStable = isStableFor(LANDING_SAMPLES_CHECK, 

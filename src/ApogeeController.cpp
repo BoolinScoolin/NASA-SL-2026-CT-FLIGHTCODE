@@ -28,6 +28,7 @@ ApogeeController::ApogeeController() {
     integralError = 0.0f;
     previousApogee = 0.0f;
     currentFlapAngle = 0.0f;
+    achievedFlapAngle = 0.0f;
     lastUpdateTime = 0;
     controlActive = false;
     predictedApogee = 0.0f;
@@ -177,12 +178,16 @@ float ApogeeController::update(INS_State& ins, FlightPhase phase) {
     
     float dt = (now - lastUpdateTime) / 1000000.0f;  // Convert to seconds
     lastUpdateTime = now;
+
+    // Update achieved angle
+    achievedFlapAngle = servo.getPositionDeg()/ACTUATOR_FLAP_SLOPE;
     
     // Step 1: Predict apogee with current flap angle
     predictedApogee = predictApogee(
-        ins.p3_n_m,
-        ins.v3_n_mps,
-        currentFlapAngle
+        -ins.p3_n_m,
+        -ins.v3_n_mps,
+        13.6f
+        //achievedFlapAngle
     );
     
     // Step 2: Compute new flap angle using PID
@@ -203,8 +208,12 @@ float ApogeeController::getPredictedApogee() {
     return predictedApogee;
 }
 
-float ApogeeController::getCurrentFlapAngle() {
+float ApogeeController::getCommandFlapAngle() {
     return currentFlapAngle;
+}
+
+float ApogeeController::getAchievedFlapAngle() {
+    return achievedFlapAngle;
 }
 
 float ApogeeController::getApogeeError() {

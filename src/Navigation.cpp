@@ -16,9 +16,9 @@ void attitude_propagate(INS_State& ins, const IMU_Measurements& imu_meas) {
     }
 
     // Angular rates = gyro readings - gyro biases
-    float p_b_rps = -(imu_meas.gyroX - ins.b1_g_rps);
+    float p_b_rps = -(imu_meas.gyroX - ins.b1_g_rps); // removed the minus sign
     float q_b_rps = imu_meas.gyroY - ins.b2_g_rps;
-    float r_b_rps = -(imu_meas.gyroZ - ins.b3_g_rps);
+    float r_b_rps = -(imu_meas.gyroZ - ins.b3_g_rps); // removed the minus sign
 
     // Compute sigma
     float sigma_x_rad = p_b_rps*deltat_s;
@@ -51,22 +51,21 @@ void attitude_propagate(INS_State& ins, const IMU_Measurements& imu_meas) {
 
 void compute_attitude(INS_State& ins, FlightPhase& currentPhase, const IMU_Measurements& imu_meas) {
     if (true || currentPhase == ARMED) {
-        const float d2r = PI/180;
+        const float d2r = PI/180.0f;
         float phi_rad = imu_meas.roll_deg*d2r;
         float theta_rad = imu_meas.pitch_deg*d2r;
         float psi_rad = imu_meas.yaw_deg*d2r;
         ins.p_b_rps = (imu_meas.gyroX - ins.b1_g_rps);
         ins.q_b_rps = (imu_meas.gyroY - ins.b2_g_rps);
         ins.r_b_rps = (imu_meas.gyroZ - ins.b3_g_rps);
-        Quaternion q_ei = (eul2quat(phi_rad, theta_rad, psi_rad)); // IMU 2 ENU
+ 
+        Quaternion q_es = quat_normalize((eul2quat(phi_rad, theta_rad, psi_rad))); // sensor 2 ENU
 
-        // static const Quaternion q_ne = {0.0, 0.70710677, 0.70710677, 0.0}; // ENU to NED
-        static const Quaternion q_ne = {0.0, 0.70710677, 0.70710677, 0.0}; // ENU to NED
-        
-        ins.q_nb = quat_mult(q_ne, q_ei);
-
-    } else {
-        attitude_propagate(ins, imu_meas);
+        ins.q_ns = quat_normalize(quat_mult(q_ne, q_es));
+        ins.q_nb = quat_normalize(quat_mult(ins.q_ns,q_sb));
+    }
+    else {
+        //attitude_propagate(ins, imu_meas);
     }
 }
 
@@ -103,7 +102,9 @@ void initialize_orientation(INS_State& ins, IMU_Measurements& imu_meas) {
     float roll_rad  = imu_meas.roll_deg*d2r;
     float pitch_rad = imu_meas.pitch_deg*d2r;
     float yaw_rad   = imu_meas.yaw_deg*d2r;
-    ins.q_nb = eul2quat(roll_rad, pitch_rad, yaw_rad);
+    Quaternion q_es = eul2quat(roll_rad, pitch_rad, yaw_rad);
+    ins.q_ns = quat_normalize(quat_mult(q_ne, q_es));
+    ins.q_nb = quat_normalize(quat_mult(ins.q_ns,q_sb));
 }
 
 void apply_imu_calibration(INS_State& ins) {
@@ -125,97 +126,92 @@ void apply_imu_calibration(INS_State& ins) {
         }
         ins.tumble_calibration_data.axisOffset[row] = axisOffsetValues[row];
     }
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[0][0], 6);
-    // Serial.print(" ");
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[0][1], 6);
-    // Serial.print(" ");
-    // Serial.println(ins.tumble_calibration_data.invGainMatrix[0][2], 6);
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[1][0], 6);
-    // Serial.print(" ");
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[1][1], 6);
-    // Serial.print(" ");
-    // Serial.println(ins.tumble_calibration_data.invGainMatrix[1][2], 6);
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[2][0], 6);
-    // Serial.print(" ");
-    // Serial.print(ins.tumble_calibration_data.invGainMatrix[2][1], 6);
-    // Serial.print(" ");
-    // Serial.println(ins.tumble_calibration_data.invGainMatrix[2][2], 6);
+    Serial.println("Calibration Data: ");
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[0][0], 6);
+    Serial.print(" ");
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[0][1], 6);
+    Serial.print(" ");
+    Serial.println(ins.tumble_calibration_data.invGainMatrix[0][2], 6);
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[1][0], 6);
+    Serial.print(" ");
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[1][1], 6);
+    Serial.print(" ");
+    Serial.println(ins.tumble_calibration_data.invGainMatrix[1][2], 6);
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[2][0], 6);
+    Serial.print(" ");
+    Serial.print(ins.tumble_calibration_data.invGainMatrix[2][1], 6);
+    Serial.print(" ");
+    Serial.println(ins.tumble_calibration_data.invGainMatrix[2][2], 6);
 
-    // Serial.print("\n");
-    // Serial.print(ins.tumble_calibration_data.axisOffset[0], 6);
-    // Serial.print(" ");
-    // Serial.print(ins.tumble_calibration_data.axisOffset[1], 6);
-    // Serial.print(" ");
-    // Serial.println(ins.tumble_calibration_data.axisOffset[2], 6);
+    Serial.print("\n");
+    Serial.print(ins.tumble_calibration_data.axisOffset[0], 6);
+    Serial.print(" ");
+    Serial.print(ins.tumble_calibration_data.axisOffset[1], 6);
+    Serial.print(" ");
+    Serial.println(ins.tumble_calibration_data.axisOffset[2], 6);
+}
+
+void reset_INS(INS_State& ins, IMU_Measurements& imu_meas) {
+    //ins = INS_State{0};
+    ins.p1_n_m = 0;
+    ins.p2_n_m = 0;
+    ins.p3_n_m = 0;
+    ins.v1_n_mps = 0;
+    ins.v2_n_mps = 0;
+    ins.v3_n_mps = 0;
+    ins.b1_a_mps2 = 0;
+    ins.b2_a_mps2 = 0;
+    ins.b3_a_mps2 = 0;
+    FlightPhase current_phase = ARMED;
+    compute_attitude(ins, current_phase, imu_meas);
+}
+
+// Sensor --> NED
+void sensor2NED(Vector3& res, const Quaternion& q_ns, const Vector3& vec_raw_s) {
+    float v1 = vec_raw_s.x;
+    float v2 = vec_raw_s.y;
+    float v3 = vec_raw_s.z;
+    float w1 = 0.0f;
+    float w2 = 0.0f;
+    float w3 = 0.0f;
+    quat_transform(q_ns, v1, w1, v2, w2, v3, w3);
+    res.x = w1;
+    res.y = w2;
+    res.z = w3;
 }
 
 void navigation_propagate(INS_State& ins, const IMU_Measurements& imu_meas) {
-    
-    // Time since last prop step
     constexpr float US_TO_S = 1.0e-6f;
-    float deltat_s = imu_meas.IMU_dt_us * US_TO_S; 
+    float dt = imu_meas.IMU_dt_us * US_TO_S;
 
-    // // Specific force in body frame
-    // float ax_b_mps2 = imu_meas.accelX - ins.b1_a_mps2;
-    // float ay_b_mps2 = imu_meas.accelY - ins.b2_a_mps2;
-    // float az_b_mps2 = imu_meas.accelZ - ins.b3_a_mps2;
+    if (dt <= 0.0f || dt > 0.1f) return;
 
-    float ax_b_mps2 = ins.tumble_calibration_data.estimatedTrueAcceleration[0];
-    float ay_b_mps2 = ins.tumble_calibration_data.estimatedTrueAcceleration[1];
-    float az_b_mps2 = ins.tumble_calibration_data.estimatedTrueAcceleration[2];
+    // 1. PACK
+    Vector3 accel_body = {
+        ins.tumble_calibration_data.estimatedTrueAcceleration[0],
+        ins.tumble_calibration_data.estimatedTrueAcceleration[1],
+        ins.tumble_calibration_data.estimatedTrueAcceleration[2]
+    };
 
-    // Resolve acceleration in body frame
-    // float ax_n_mps2;
-    // float ay_n_mps2;
-    // float az_n_mps2;
-    quat_transform(ins.q_nb,
-                   ax_b_mps2, ins.a1_n_mps2,
-                   ay_b_mps2, ins.a2_n_mps2,
-                   az_b_mps2, ins.a3_n_mps2);
+    // 2. ROTATE (Body to NED)
+    Vector3 accel_ned;
+    sensor2NED(accel_ned, ins.q_ns, accel_body);
 
-    // // ENU to NED
-    // float temp = ax_b_mps2;
-    // ax_b_mps2 = ay_b_mps2;
-    // ay_b_mps2 = temp;
-    // az_n_mps2 = -az_n_mps2;
-    
-    // Gravity compensation
-    ins.a3_n_mps2 += gz_n_mps2;
+    // 3. UNPACK & Gravity Compensation
+    ins.a1_n_mps2 = accel_ned.x;
+    ins.a2_n_mps2 = accel_ned.y;
+    ins.a3_n_mps2 = accel_ned.z + gz_n_mps2; 
 
-    // Bias compensation from 1D ESKF
-    // az_n_mps2 -= ins.b3_a_mps2;
 
-    // Propagation
-    const float half_dt2 = 0.5f * deltat_s*deltat_s;
-    ins.p1_n_m += ins.v1_n_mps*deltat_s + ins.a1_n_mps2*half_dt2;
-    ins.p2_n_m += ins.v2_n_mps*deltat_s + ins.a2_n_mps2*half_dt2;
-    ins.p3_n_m += ins.v3_n_mps*deltat_s + ins.a3_n_mps2*half_dt2;
-    ins.v1_n_mps += ins.a1_n_mps2*deltat_s;
-    ins.v2_n_mps += ins.a2_n_mps2*deltat_s;
-    ins.v3_n_mps += ins.a3_n_mps2*deltat_s;
+    const float half_dt2 = 0.5f * dt * dt;
 
-    // Serial.print(imu_meas.accelX);
-    // Serial.print(" ");
-    // Serial.print(imu_meas.accelY);
-    // Serial.print(" ");
-    // Serial.print(imu_meas.accelZ);
-    // Serial.print("     ");
+    // Update Position
+    ins.p1_n_m += ins.v1_n_mps * dt + ins.a1_n_mps2 * half_dt2;
+    ins.p2_n_m += ins.v2_n_mps * dt + ins.a2_n_mps2 * half_dt2;
+    ins.p3_n_m += ins.v3_n_mps * dt + (ins.a3_n_mps2 - ins.b3_a_mps2) * half_dt2;
 
-    // Serial.print(ax_b_mps2);
-    // Serial.print(" ");
-    // Serial.print(ay_b_mps2);
-    // Serial.print(" ");
-    // Serial.print(az_b_mps2);
-    // Serial.print("     ");
-
-    // Serial.print(ins.a1_n_mps2);
-    // Serial.print(" ");
-    // Serial.print(ins.a2_n_mps2);
-    // Serial.print(" ");
-    // Serial.println(ins.a3_n_mps2);
+    // Update Velocity
+    ins.v1_n_mps += ins.a1_n_mps2 * dt;
+    ins.v2_n_mps += ins.a2_n_mps2 * dt;
+    ins.v3_n_mps += (ins.a3_n_mps2 - ins.b3_a_mps2) * dt;
 }
-
-void update_vertical_bias(INS_State& ins, KalmanFilter& KF) {
-    ins.b3_a_mps2 = KF.getVelocityError();
-}
-
