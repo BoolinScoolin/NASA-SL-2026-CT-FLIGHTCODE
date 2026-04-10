@@ -21,6 +21,7 @@ volatile bool read_baro_flag = true;
 bool read_imu_flag = true;
 volatile bool update_phase_flag = false;
 volatile bool write_data_flag = true;
+bool zero_servo_flag = true;
 
 // Servo
 CTServo servo(SERVO_ID);
@@ -116,6 +117,15 @@ void setup() {
         tone(BUZZER_PIN, NOTE_C8, 500);
         delay (1000);
     }
+
+    // Zero Servo ( (25 deg flaps) * (2.64 servo/flap) * (4096/360 ticks/deg) ~= 750 ticks full extension)
+    servo.slamShut();
+    delay(3000);
+    uint16_t close_ticks = servo.getCurrentTicks();
+    servo.setCloseTicks(close_ticks);       // update full close ticks property
+    servo.setOpenTicks(close_ticks + 750);  // update full open ticks property
+    servo.writePosition(0);                 // this will send it to full close
+
 
     // // Open Close Loop (COMMENT OUT IN FLIGHT)
     // while (true) {
@@ -246,15 +256,15 @@ void loop() {
     now = micros() - time_setup_complete_us;
     loop_now = micros() - time_setup_complete_us;
 
-    // Loop Timer
-    static uint32_t last_update = 0;
-    static uint32_t max_dt = 0;
-    uint32_t dt = now - last_update;
-    if (dt > max_dt) {
-        max_dt = dt;
-    }
-    Serial.println((max_dt)/1.0e6f,10);
-    last_update = now;
+    // // Loop Timer
+    // static uint32_t last_update = 0;
+    // static uint32_t max_dt = 0;
+    // uint32_t dt = now - last_update;
+    // if (dt > max_dt) {
+    //     max_dt = dt;
+    // }
+    // Serial.println((max_dt)/1.0e6f,10);
+    // last_update = now;
 
     if (ins.b3_a_mps2 > max_b3) {
         max_b3 = ins.b3_a_mps2;
@@ -279,18 +289,43 @@ void loop() {
 
     if (currentPhase == ARMED) {
         // this is designed to re-tare ground altitude every minute
-        // I'll use this same timer to clear the output file every minute when armed
         static RollingMeanFifo<600> groundAlt;
         static uint32_t last_groundalt_update_us = micros();
+        static uint8_t cc = 0;
+        static uint32_t time_servo_shut_us = now;
         groundAlt.push(baro_meas.baroAltitude);
         if (now - last_groundalt_update_us > 60*1000000) {
             groundAltitude = groundAlt.mean();
             last_groundalt_update_us = now;
-            output_file.truncate(0);
-            output_file.seek(0);
-            writeHeaders();
-            output_file.flush();
+
+            // I'll use this same timer to clear the output file every 5 minutes when armed
+            cc++; // minute counter
+            if (cc >= 5) {  // if 5 minutes have passed
+                output_file.truncate(0);  // clear file
+                output_file.seek(0);
+                writeHeaders();
+                output_file.flush();
+                cc = 0; // reset minute counter
+
+            }
+
+            // And I'll use it to zero the servo every minute. This is gonna be unreadable lol.
+            servo.slamShut();
+            time_servo_shut_us = now;
+            zero_servo_flag = true;
         }
+
+        // First bool here says a minute has passed in ARMED state
+        // Second bool here says an additional second has passed since the servo has been slammed shut
+        if(zero_servo_flag && now - time_servo_shut_us > 1.0e6) {
+            uint16_t close_ticks = servo.getCurrentTicks();
+            servo.setCloseTicks(close_ticks);       // update full close ticks property
+            servo.setOpenTicks(close_ticks + 750);  // update full open ticks property
+            servo.writePosition(0);                 // this will send it to full close
+
+            zero_servo_flag = false;
+        }
+
 
         // This just blinks the LED if its armed
         static uint32_t last_blink_update_us = micros();
@@ -379,7 +414,7 @@ void loop() {
     }
 
     // DEBUG PRINTS
-    if (false && loop_now - last_print_us > 90000) {
+    if (true && loop_now - last_print_us > 90000) {
         float roll_rad;
         float pitch_rad;
         float yaw_rad;
@@ -413,16 +448,16 @@ void loop() {
 
         // Serial.print(KF.getAltitudeError());
         // Serial.print("    ");
-        Serial.print(baro_meas.baroAltitude - groundAltitude, 4);
-        Serial.print("  ");
+        // Serial.print(baro_meas.baroAltitude - groundAltitude, 4);
+        // Serial.print("  ");
         // Serial.print(groundAltitude);
         // Serial.print("  ");
         // Serial.print(ins.p1_n_m, 2);
         // Serial.print("  ");
         // Serial.print(ins.p2_n_m, 2);
         // Serial.print("  ");
-        Serial.print(ins.p3_n_m, 2);
-        Serial.print("        ");
+        // Serial.print(ins.p3_n_m, 2);
+        // Serial.print("        ");
         // Serial.print(ins.v3_n_mps, 4);
         // Serial.print("        ");
         // Serial.print(ins.a1_n_mps2, 4);
@@ -434,14 +469,14 @@ void loop() {
         // Serial.print(ins.b3_a_mps2);
         // Serial.print("      ");
 
-        Serial.print(maxAltitude);
-        Serial.print("  ");
-        Serial.print(max_v3);
-        Serial.print("  ");
-        Serial.print(max_b3);
-        Serial.print("  ");
-        Serial.print(controller.getPredictedApogee());
-        Serial.print("      ");
+        // Serial.print(maxAltitude);
+        // Serial.print("  ");
+        // Serial.print(max_v3);
+        // Serial.print("  ");
+        // Serial.print(max_b3);
+        // Serial.print("  ");
+        // Serial.print(controller.getPredictedApogee());
+        // Serial.print("      ");
         // Serial.print(controller.getCommandFlapAngle());
         // Serial.print("  ");
         // Serial.print(controller.getAchievedFlapAngle());
@@ -452,6 +487,13 @@ void loop() {
 
         // Serial.print(servo.getPositionDeg());
         // Serial.print("   ");
+        Serial.print(servo.getCurrentCurrent());
+        Serial.print("   ");
+        Serial.print(servo.getCurrentTicks());
+        Serial.print("   ");
+        Serial.print(servo.getCloseTicks());
+        Serial.print("   ");
+        
 
         // Serial.print(ins.tumble_calibration_data.estimatedTrueAcceleration[0]);
         // Serial.print(" ");

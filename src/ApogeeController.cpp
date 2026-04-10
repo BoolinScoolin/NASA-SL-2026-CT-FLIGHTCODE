@@ -263,7 +263,7 @@ bool ApogeeController::isControlActive() {
 }
 
 float ApogeeController::getActuatorPosCommand() {
-    return ACTUATOR_FLAP_SLOPE*currentFlapAngle + SERVO_CLOSE;
+    return ACTUATOR_FLAP_SLOPE*currentFlapAngle;
 }
 
 float ApogeeController::getActuatorRateCommand() {

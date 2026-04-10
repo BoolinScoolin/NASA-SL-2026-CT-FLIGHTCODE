@@ -20,7 +20,7 @@
 // #include "SIL_sensors.h"
 
 // DISABLE PERIPHERALS
-#define SERVO_DISABLED  // Disables sending servo commands
+// #define SERVO_DISABLED  // Disables sending servo commands
 // #define BARO_DISABLED   // Disables barometer initialization and ISR
 
 
