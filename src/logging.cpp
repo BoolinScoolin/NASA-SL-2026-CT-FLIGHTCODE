@@ -70,7 +70,13 @@ void writeHeaders() {
     output_file.print(",");
     output_file.print("state");
     output_file.print(",");
+    output_file.print("pred apogee");
+    output_file.print(",");
     output_file.print("encoder");
     output_file.print(",");
-    output_file.println("command");
+    output_file.print("cmd pos");
+    output_file.print(",");
+    output_file.println("cmd rate");
+    
+    output_file.flush();
 }

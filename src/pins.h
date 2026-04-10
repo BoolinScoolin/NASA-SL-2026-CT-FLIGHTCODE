@@ -3,8 +3,8 @@
 #define IMU_ADDRESS 0x6B
 
 // Beeper
-// #define BUZZER_PIN 37
-#define BUZZER_PIN 38 // DISABLES BUZZER (NOTHINGS ON 38)
+#define BUZZER_PIN 37
+// #define BUZZER_PIN 38 // DISABLES BUZZER (NOTHINGS ON 38)
 
 // LED
 #define RGB_R_PIN 36

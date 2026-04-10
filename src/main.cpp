@@ -37,7 +37,11 @@ IntervalTimer read_imu_SIL;
 #error "REAL_SENSORS_FLAG and SIL_SENSORS_FLAG cannot both be defined. Check main.h"
 #endif
 
-// DEBUG VARIABLES, DO NOT FLY
+#if defined(POSITION_CONTROLLER) && defined(RATE_CONTROLLER)
+#error "POSITION_CONTROLLER and RATE_CONTROLLER cannot both be defined. Check ApogeeController.h"
+#endif
+
+// DEBUG VARIABLES, DONT NEED TO FLY
 float max_b3 = 0;
 float max_v3 = 0;
 
@@ -68,7 +72,7 @@ void new_imu_reading() {
     // Logging
     static uint32_t k = 0;
     k++;
-    if (k >= 10) {
+    if (true || k >= 10) {
         write_data_flag = true;
         k = 0;
     }   
@@ -79,8 +83,6 @@ void read_baro_ISR() {
 }
 
 void setup() {
-
-    noInterrupts();
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH);
@@ -241,6 +243,19 @@ void setup() {
 
 void loop() {
 
+    now = micros() - time_setup_complete_us;
+    loop_now = micros() - time_setup_complete_us;
+
+    // Loop Timer
+    static uint32_t last_update = 0;
+    static uint32_t max_dt = 0;
+    uint32_t dt = now - last_update;
+    if (dt > max_dt) {
+        max_dt = dt;
+    }
+    Serial.println((max_dt)/1.0e6f,10);
+    last_update = now;
+
     if (ins.b3_a_mps2 > max_b3) {
         max_b3 = ins.b3_a_mps2;
     }
@@ -254,9 +269,6 @@ void loop() {
         max_v3 = -ins.v3_n_mps;
     }
 
-    now = micros() - time_setup_complete_us;
-    loop_now = micros() - time_setup_complete_us;
-
     static uint32_t last_print_us = 0;
 
     // State detection
@@ -267,12 +279,17 @@ void loop() {
 
     if (currentPhase == ARMED) {
         // this is designed to re-tare ground altitude every minute
+        // I'll use this same timer to clear the output file every minute when armed
         static RollingMeanFifo<600> groundAlt;
         static uint32_t last_groundalt_update_us = micros();
         groundAlt.push(baro_meas.baroAltitude);
         if (now - last_groundalt_update_us > 60*1000000) {
             groundAltitude = groundAlt.mean();
             last_groundalt_update_us = now;
+            output_file.truncate(0);
+            output_file.seek(0);
+            writeHeaders();
+            output_file.flush();
         }
 
         // This just blinks the LED if its armed
@@ -304,13 +321,13 @@ void loop() {
         }
         else if (currentPhase == COASTING) { 
             controller.update(ins, currentPhase);
-            servo.writePosition(controller.getActuatorCommand());
+            servo.writePosition(controller.getActuatorPosCommand());
         }
     }
 
     // Write data
     static uint32_t c = 0;  // Flush counter
-    if (false && write_data_flag) {
+    if (true && write_data_flag) {
         servo.readPosition();
         output_file.print(now*1.0e-6f,6);
         output_file.print(",");
@@ -344,12 +361,16 @@ void loop() {
         output_file.print(",");
         output_file.print(currentPhase);
         output_file.print(",");
+        output_file.print(controller.getPredictedApogee(),3);
+        output_file.print(",");
         output_file.print(servo.getPositionDeg());
         output_file.print(",");
-        output_file.println(controller.getActuatorCommand());
+        output_file.print(controller.getActuatorPosCommand());
+        output_file.print(",");
+        output_file.println(controller.getActuatorRateCommand());
 
         c++;
-        if (c >= 200) {
+        if (c >= 200 || c >= 10) {
             output_file.flush();
             c = 0;
         }
@@ -358,7 +379,7 @@ void loop() {
     }
 
     // DEBUG PRINTS
-    if (true && loop_now - last_print_us > 90000) {
+    if (false && loop_now - last_print_us > 90000) {
         float roll_rad;
         float pitch_rad;
         float yaw_rad;

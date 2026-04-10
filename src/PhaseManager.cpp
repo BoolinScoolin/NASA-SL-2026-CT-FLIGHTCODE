@@ -249,7 +249,7 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
         case CONTROL_TEST: {
             // send max actuation signal
             controller.commandFlapAngle(MAX_FLAP_ANGLE);
-            servo.writePosition(controller.getActuatorCommand());
+            servo.writePosition(controller.getActuatorPosCommand());
 
             // switch phase after timer finishes
             if (now - phaseStartTime > CONTROL_TEST_TIME_US) {
@@ -269,7 +269,7 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
             // All three conditions must be met for robust apogee detection
             if (velocityNegative && altitudeDecreasing && significantDrop) {
                 controller.commandFlapAngle(MIN_FLAP_ANGLE);
-                servo.writePosition(controller.getActuatorCommand());
+                servo.writePosition(controller.getActuatorPosCommand());
                 currentPhase = DESCENT;
                 phaseStartTime = now;
             }
@@ -299,8 +299,10 @@ void updateFlightPhase(INS_State& ins, BARO_Measurements& baro_meas) {
             bool isStable = isStableFor(LANDING_SAMPLES_CHECK, 
                                        LANDING_ALT_CHANGE_MAX, 
                                        LANDING_VEL_CHANGE_MAX);
+
+            bool longTime = (now - liftoffTime)/1.0e6f > 240.0f;
             
-            if (lowAltitude && isStable) {
+            if ((lowAltitude && isStable) || longTime) {
                 currentPhase = LANDED;
                 phaseStartTime = now;
                 tone(BUZZER_PIN, NOTE_G8, 10000);

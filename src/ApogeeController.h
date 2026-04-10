@@ -17,6 +17,10 @@
 // CONFIGURATION
 // ============================================================================
 
+// Select RATE CONTROLLER or POSITION CONTROLLER
+#define RATE_CONTROLLER
+// #define POSITION_CONTROLLER
+
 // Target apogee (meters AGL)
 #define TARGET_APOGEE 4250.0f/3.28084f  // ~4250 feet --> make sure convert to m
 
@@ -31,13 +35,15 @@
 #define AIR_DENSITY 1.225f          // kg/m^3 at sea level
 
 // Control parameters
-#define CONTROL_UPDATE_INTERVAL 100000  // microseconds (0.5 second)
+#define CONTROL_UPDATE_INTERVAL 20000  // microseconds
 #define MAX_FLAP_ANGLE 25.0f        // degrees
 #define MIN_FLAP_ANGLE 0.0f         // degrees (fully retracted)
+#define MAX_FLAP_RATE 140.0f        // degrees per second
+#define MIN_FLAP_RATE -140.0f        // degrees per second
 
 // PID gains (TUNE THESE!)
-#define KP 4.0f   // Proportional gain
-#define KI 0.2f   // Integral gain 
+#define KP 0.12f   // Proportional gain
+#define KI 0.0f   // Integral gain 
 #define KD 0.0f   // Derivative gain
 
 // Simulation parameters
@@ -63,6 +69,8 @@ private:
     
     // Control state
     float currentFlapAngle;
+    float currentFlapRate;
+
     float achievedFlapAngle;
     unsigned long lastUpdateTime;
     bool controlActive;
@@ -97,7 +105,8 @@ public:
     float getApogeeError();
     int getSimulationSteps();
     bool isControlActive();
-    float getActuatorCommand();
+    float getActuatorPosCommand();
+    float getActuatorRateCommand();
     
 };
 

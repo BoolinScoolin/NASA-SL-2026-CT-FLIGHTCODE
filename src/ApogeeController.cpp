@@ -44,6 +44,7 @@ void ApogeeController::initialize() {
     integralError = 0.0f;
     previousApogee = 0.0f;
     currentFlapAngle = 0.0f;
+    currentFlapRate = 0.0f;
     lastUpdateTime = micros();
     controlActive = false;
     predictedApogee = 0.0f;
@@ -142,17 +143,27 @@ float ApogeeController::computeControl(float predictedApogee, float dt) {
     
     // PID output: desired flap angle based on error
     // This is the ABSOLUTE angle we want, not an increment
-    float desiredAngle = pTerm + iTerm + dTerm;
+    float control = pTerm + iTerm + dTerm;
+
+    // Convert control to degrees (THIS IS TO ACCOUNT FOR A SLIGHT SIMULINK DISCREPANCY.
+    // THE SIMULINK OUTPUTS RADIANS ALL THE WAY THROUGH. HERE, WE USE DEGREES FOR SERVO ABSTRACTION.)
+    // control = control*180.0f/PI;
     
     // Update previous values for next iteration
     previousError = error;
     previousApogee = predictedApogee;
     
     // Clamp to valid range
-    if (desiredAngle > MAX_FLAP_ANGLE) desiredAngle = MAX_FLAP_ANGLE;
-    if (desiredAngle < MIN_FLAP_ANGLE) desiredAngle = MIN_FLAP_ANGLE;
+    #ifdef POSITION_CONTROLLER
+        if (control > MAX_FLAP_ANGLE) control = MAX_FLAP_ANGLE;
+        if (control < MIN_FLAP_ANGLE) control = MIN_FLAP_ANGLE;
+    #endif
+    #ifdef RATE_CONTROLLER
+        if (control > MAX_FLAP_RATE) control = MAX_FLAP_RATE;
+        if (control < MIN_FLAP_RATE) control = MIN_FLAP_RATE;
+    #endif
     
-    return desiredAngle;
+    return control;
 }
 
 // ============================================================================
@@ -179,6 +190,10 @@ float ApogeeController::update(INS_State& ins, FlightPhase phase) {
     float dt = (now - lastUpdateTime) / 1000000.0f;  // Convert to seconds
     lastUpdateTime = now;
 
+    if (dt > 2.0f) {
+        return currentFlapAngle;
+    } 
+
     // Update achieved angle
     achievedFlapAngle = servo.getPositionDeg()/ACTUATOR_FLAP_SLOPE;
     
@@ -186,12 +201,31 @@ float ApogeeController::update(INS_State& ins, FlightPhase phase) {
     predictedApogee = predictApogee(
         -ins.p3_n_m,
         -ins.v3_n_mps,
-        13.6f
-        //achievedFlapAngle
+        achievedFlapAngle
     );
     
     // Step 2: Compute new flap angle using PID
-    currentFlapAngle = computeControl(predictedApogee, dt);
+    #ifdef POSITION_CONTROLLER
+        currentFlapAngle = computeControl(predictedApogee, dt);
+    #endif
+
+    #ifdef RATE_CONTROLLER
+        currentFlapRate = computeControl(predictedApogee, dt);
+        currentFlapAngle += currentFlapRate*dt;
+        if (currentFlapAngle > MAX_FLAP_ANGLE) currentFlapAngle = MAX_FLAP_ANGLE;
+        if (currentFlapAngle < MIN_FLAP_ANGLE) currentFlapAngle = MIN_FLAP_ANGLE;
+    #endif
+    
+    // Serial.print("dt: ");
+    // Serial.print(dt);
+    // Serial.print("   predicted: ");
+    // Serial.print(predictedApogee);
+    // Serial.print("   currentRate: ");
+    // Serial.print(currentFlapRate);
+    // Serial.print("   currentAngle: ");
+    // Serial.print(currentFlapAngle);
+    // Serial.print("   achievedAngle: ");
+    // Serial.println(achievedFlapAngle);
     
     return currentFlapAngle;
 }
@@ -228,6 +262,10 @@ bool ApogeeController::isControlActive() {
     return controlActive;
 }
 
-float ApogeeController::getActuatorCommand() {
+float ApogeeController::getActuatorPosCommand() {
     return ACTUATOR_FLAP_SLOPE*currentFlapAngle + SERVO_CLOSE;
+}
+
+float ApogeeController::getActuatorRateCommand() {
+    return currentFlapRate;
 }
